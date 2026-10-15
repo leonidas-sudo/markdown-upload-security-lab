@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markdown Upload Security Lab</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f4f6fb}
+*{box-sizing:border-box}body{margin:0}header{background:#172033;color:white;padding:24px max(20px,calc((100% - 1100px)/2))}
+header h1{margin:0 0 8px;font-size:1.7rem}header p{margin:0;color:#dbe4f5}
+main{max-width:1100px;margin:24px auto;padding:0 18px 40px;display:grid;gap:18px;grid-template-columns:1fr 1fr}
+.panel{background:white;border:1px solid #dce2ed;border-radius:14px;padding:20px;box-shadow:0 3px 12px #1720330a}
+.wide{grid-column:1/-1}h2{font-size:1.15rem;margin:0 0 14px}p{line-height:1.5}
+label{display:block;font-weight:650;margin:12px 0 6px}input[type=file],select,button{font:inherit}
+input[type=file],select{width:100%;padding:10px;border:1px solid #c9d2e2;border-radius:8px;background:#fff}
+button{border:0;border-radius:8px;padding:10px 14px;background:#2457c5;color:#fff;cursor:pointer;margin:8px 6px 0 0}
+button.secondary{background:#e8edf7;color:#172033}button:focus,input:focus,select:focus{outline:3px solid #9dbaff;outline-offset:2px}
+.status{padding:10px 12px;border-radius:8px;background:#f0f4fb;white-space:pre-wrap;overflow-wrap:anywhere}
+.good{background:#e8f7ee;color:#155b32}.warn{background:#fff4d9;color:#744d00}.bad{background:#ffe9e9;color:#8a1d1d}
+.preview{border:1px solid #dce2ed;border-radius:8px;min-height:190px;padding:12px;overflow:auto;background:#fff}
+iframe{width:100%;height:260px;border:1px solid #dce2ed;border-radius:8px;background:white}
+code,pre{background:#f1f4f9;border-radius:5px;padding:2px 5px}pre{padding:12px;overflow:auto}
+ul{padding-left:22px}.small{font-size:.9rem;color:#536078}.pill{display:inline-block;border-radius:999px;padding:3px 9px;background:#edf1f8;font-size:.8rem}
+.checkrow{display:flex;align-items:center;gap:8px;margin:12px 0}.checkrow label{margin:0;font-weight:500}
+@media(max-width:760px){main{grid-template-columns:1fr}.wide{grid-column:auto}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Markdown Upload Security Lab</h1>
+  <p>A static, browser-only practice site for authorized file-upload and Markdown-rendering checks.</p>
+</header>
+<main>
+  <section class="panel">
+    <h2>1. Select a file</h2>
+    <p class="small">The demo accepts a <code>.md</code>, <code>.markdown</code>, or <code>.pdf</code> filename for validation practice. No file is sent to a server.</p>
+    <label for="file">Choose a local file</label>
+    <input id="file" type="file" accept=".md,.markdown,.pdf,text/markdown,application/pdf">
+    <div>
+      <button id="validate">Validate file</button>
+      <button id="loadSample" class="secondary">Load sample Markdown</button>
+      <button id="clear" class="secondary">Clear</button>
+    </div>
+    <label>Validation result</label>
+    <div id="validation" class="status">Choose a file to begin.</div>
+    <p class="small">Client-side checks are not a substitute for server-side validation. GitHub Pages cannot demonstrate backend upload handling or SSRF.</p>
+  </section>
+
+  <section class="panel">
+    <h2>2. Markdown preview</h2>
+    <p class="small">Safe preview escapes raw HTML. Isolated HTML preview uses a sandboxed iframe without same-origin access to this page.</p>
+    <label for="mode">Preview mode</label>
+    <select id="mode">
+      <option value="safe">Safe text/Markdown preview</option>
+      <option value="isolated">Isolated raw-HTML preview (sandboxed)</option>
+    </select>
+    <div style="margin-top:12px">
+      <div id="safePreview" class="preview" aria-live="polite">Preview will appear here.</div>
+      <iframe id="isolatedPreview" title="Sandboxed isolated preview" sandbox="allow-scripts" hidden></iframe>
+    </div>
+    <p class="small">The isolated mode is for observing rendering behavior only. It is not a full browser-security test and should not be used as a production renderer.</p>
+  </section>
+
+  <section class="panel wide">
+    <h2>3. Test ideas</h2>
+    <ul>
+      <li><b>Extension and MIME:</b> compare filename extension, browser-reported MIME type, and content. Try a renamed file and a double extension.</li>
+      <li><b>HTML rendering:</b> use the provided sample to see how raw HTML is treated. In a real target, confirm whether any script executes in the target application's origin.</li>
+      <li><b>Remote resources:</b> add a link or image to a domain you control and inspect access logs. A browser request is not proof of SSRF; SSRF requires a backend-originated request.</li>
+      <li><b>Authorization:</b> in the target application, replay document read/update/delete requests with a different workspace's account and IDs.</li>
+      <li><b>Resource limits:</b> test file size and malformed inputs only in an authorized, controlled environment.</li>
+    </ul>
+    <div class="status warn"><b>Scope limitation:</b> This is a static GitHub Pages lab. It does not store uploads, call a backend, parse PDFs, access internal IPs, or make server-side URL requests.</div>
+  </section>
+
+  <section class="panel wide">
+    <h2>4. Sample content</h2>
+    <p class="small">Edit this text or load <code>samples/markdown-security-test.md</code> from the repository.</p>
+    <label for="source">Markdown source</label>
+    <textarea id="source" rows="11" style="width:100%;font:14px ui-monospace,monospace;padding:12px;border:1px solid #c9d2e2;border-radius:8px"># Markdown Security Test
+
+This is ordinary **Markdown** content.
+
+Raw HTML test (should remain inert in safe mode):
+
+<img src="x-invalid" onerror="alert('XSS test')">
+
+[Example link](https://example.com)
+
+![Remote image test](https://example.com/test-image.png)
+</textarea>
+    <button id="render">Render source</button>
+  </section>
+
+  <section class="panel wide">
+    <h2>5. Embedded AI agent</h2>
+    <p class="small">This section loads the agent widget from the embed snippet shown in your deployment screen. Use the app's <b>Copy</b> button and replace the script tag below if the key differs.</p>
+    <div class="status warn"><b>Testing scope:</b> The widget is public to anyone who can access this page when “Anyone with the link” is enabled. Do not put secrets or private customer data in this demo. Only test with an agent and workspace you are authorized to assess.</div>
+    <p>After publishing this site, verify that the chat bubble appears, open it, and test the agent's intended behavior. Keep the Markdown upload lab tests separate from agent behavior tests so you can identify which component causes a result.</p>
+    <details>
+      <summary style="cursor:pointer;font-weight:650;margin:12px 0">View embed snippet configured on this page</summary>
+      <pre><code>&lt;script src="https://os.sumvec.com/api/v1/public/widget.js" data-key="pk_VRFJSo9E5Qlo-MUnz_z1ICXf1NpDGUSn" data-api="https://os.sumvec.com" defer&gt;&lt;/script&gt;</code></pre>
+    </details>
+    <p class="small">To activate the widget, paste the exact snippet copied from your app into the end of this HTML file, immediately before <code>&lt;/body&gt;</code>. Replace the placeholder script below if needed.</p>
+  </section>
+
+</main>
+<script>
+const fileInput = document.getElementById('file');
+const validation = document.getElementById('validation');
+const source = document.getElementById('source');
+const mode = document.getElementById('mode');
+const safePreview = document.getElementById('safePreview');
+const isolatedPreview = document.getElementById('isolatedPreview');
+let selectedFile = null;
+
+function escapeHTML(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function miniMarkdown(s) {
+  // Deliberately small renderer: escape HTML first, then apply a few Markdown features.
+  let out = escapeHTML(s);
+  out = out.replace(/^### (.*)$/gm, '<h3>$1</h3>')
+           .replace(/^## (.*)$/gm, '<h2>$1</h2>')
+           .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+           .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+           .replace(/\*(.+?)\*/g, '<em>$1</em>')
+           .replace(/\[([^\]]+)\]\((https?:\/\/[^ )]+)\)/g, '<a href="$2" rel="noopener noreferrer">$1</a>')
+           .replace(/\n/g, '<br>');
+  return out;
+}
+function render() {
+  const text = source.value;
+  if (mode.value === 'safe') {
+    safePreview.hidden = false;
+    isolatedPreview.hidden = true;
+    safePreview.innerHTML = miniMarkdown(text);
+  } else {
+    safePreview.hidden = true;
+    isolatedPreview.hidden = false;
+    // The raw content is confined to a sandboxed iframe with no allow-same-origin.
+    // This intentionally demonstrates raw HTML rendering without granting the iframe
+    // access to the parent page's origin or DOM.
+    isolatedPreview.srcdoc = '<!doctype html><meta charset="utf-8"><body style="font:16px system-ui;padding:12px">' + text + '
+<!-- AI agent widget embed: replace the placeholder with the exact data-key from your app's Copy button. -->
+<script
+  src="https://os.sumvec.com/api/v1/public/widget.js"
+  data-key="pk_VRfJSo9E5Qlo-Muwz_z1lcXflNpdGU5r"
+  data-api="https://os.sumvec.com"
+  defer>
+</script>
+
+</body>';
+  }
+}
+function validateFile() {
+  const f = selectedFile || fileInput.files[0];
+  if (!f) { validation.className='status warn'; validation.textContent='Select a file first.'; return; }
+  selectedFile = f;
+  const name = f.name.toLowerCase();
+  const allowed = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.pdf');
+  const looksLikePDF = f.type === 'application/pdf' || name.endsWith('.pdf');
+  validation.className = 'status ' + (allowed ? 'good' : 'bad');
+  validation.textContent =
+    'Filename: ' + f.name + '\\n' +
+    'Browser MIME type: ' + (f.type || '(not provided)') + '\\n' +
+    'Size: ' + f.size + ' bytes\\n' +
+    'Client-side extension check: ' + (allowed ? 'PASS' : 'FAIL') + '\\n' +
+    'PDF filename/MIME observation: ' + (looksLikePDF ? 'PDF-like (content not verified)' : 'not identified as PDF') +
+    '\\nNote: these checks are client-side and can be bypassed; a real server must validate independently.';
+  if (name.endsWith('.md') || name.endsWith('.markdown')) {
+    f.text().then(t => { source.value=t; render(); });
+  }
+}
+document.getElementById('validate').addEventListener('click', validateFile);
+fileInput.addEventListener('change', () => { selectedFile=fileInput.files[0] || null; validateFile(); });
+document.getElementById('loadSample').addEventListener('click', () => {
+  source.value = "# Markdown Security Test\\n\\nNormal **Markdown** text.\\n\\n<img src=\\"x-invalid\\" onerror=\\"alert('XSS test')\\">\\n\\n[Example link](https://example.com)\\n\\n![Remote image](https://example.com/test-image.png)";
+  render();
+});
+document.getElementById('clear').addEventListener('click', () => {
+  fileInput.value=''; selectedFile=null; source.value=''; validation.className='status'; validation.textContent='Choose a file to begin.'; render();
+});
+document.getElementById('render').addEventListener('click', render);
+mode.addEventListener('change', render);
+render();
+</script>
+
+<!-- AI agent widget embed: replace the placeholder with the exact data-key from your app's Copy button. -->
+<script
+  src="https://os.sumvec.com/api/v1/public/widget.js"
+  data-key="pk_VRfJSo9E5Qlo-Muwz_z1lcXflNpdGU5r"
+  data-api="https://os.sumvec.com"
+  defer>
+</script>
+
+</body>
+</html>
